@@ -14,14 +14,17 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ steps.meta.outputs.tag }}
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Notify Telegram - build start
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           pip install --quiet requests
           MSG="🏗️ Build iniciado para commit ${GITHUB_SHA::7} en main"
@@ -31,22 +34,22 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
-        if: secrets.DOCKERHUB_USERNAME != ''
+        if: env.DOCKERHUB_USERNAME != ''
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ env.DOCKERHUB_TOKEN }}
 
       - name: Compute image tag
         id: meta
         run: |
           SHORT_SHA=${GITHUB_SHA::7}
-          TAG="${{ secrets.DOCKERHUB_USERNAME }}/secure-ml-pipeline:$SHORT_SHA"
+          TAG="${DOCKERHUB_USERNAME}/secure-ml-pipeline:$SHORT_SHA"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Image: $TAG"
 
       - name: Build and push
-        if: secrets.DOCKERHUB_USERNAME != ''
+        if: env.DOCKERHUB_USERNAME != ''
         uses: docker/build-push-action@v5
         with:
           context: ./app
@@ -54,10 +57,10 @@ jobs:
           push: true
           tags: |
             ${{ steps.meta.outputs.tag }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/secure-ml-pipeline:latest
+            ${{ env.DOCKERHUB_USERNAME }}/secure-ml-pipeline:latest
 
       - name: Build only (no push)
-        if: secrets.DOCKERHUB_USERNAME == ''
+        if: env.DOCKERHUB_USERNAME == ''
         run: |
           docker build -t secure-ml-pipeline:test -f Dockerfile ./app
           echo "Docker Hub secrets not configured. Skipping push."
@@ -66,40 +69,37 @@ jobs:
     name: Deploy to Render
     needs: build
     runs-on: ubuntu-latest
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
     steps:
       - name: Trigger Render deploy hook
-        if: secrets.RENDER_DEPLOY_HOOK_URL != ''
+        if: env.RENDER_DEPLOY_HOOK_URL != ''
         run: |
           echo "Disparando deploy hook de Render..."
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}")
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${RENDER_DEPLOY_HOOK_URL}")
           echo "Render respondió: $HTTP_CODE"
           if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "201" ] && [ "$HTTP_CODE" != "202" ]; then
             echo "::warning::Render deploy hook devolvió código inesperado: $HTTP_CODE"
           fi
-        env:
-          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
 
       - name: Skip deploy (no hook URL)
-        if: secrets.RENDER_DEPLOY_HOOK_URL == ''
+        if: env.RENDER_DEPLOY_HOOK_URL == ''
         run: |
           echo "::warning::RENDER_DEPLOY_HOOK_URL no configurado. Configúralo en GitHub Secrets para habilitar el deploy automático."
 
       - name: Notify Telegram - deploy success
         if: success()
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           pip install --quiet requests
-          MSG="Despliegue en producción exitoso: ${{ github.sha }} (imagen: ${{ needs.build.outputs.image_tag }})"
+          MSG="✅ Despliegue en producción exitoso: ${{ github.sha }} (imagen: ${{ needs.build.outputs.image_tag }})"
           python -m scripts.telegram_notify "$MSG" || true
 
       - name: Notify Telegram - deploy failure
         if: failure()
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           pip install --quiet requests
-          MSG="Despliegue fallo: ${{ github.sha }}"
+          MSG="❌ Despliegue FALLÓ: ${{ github.sha }}"
           python -m scripts.telegram_notify "$MSG" || true
