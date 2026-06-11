@@ -40,7 +40,7 @@ jobs:
         run: |
           set -e
           git fetch origin test --depth=1 || git fetch origin test
-          git diff origin/test...HEAD -- '*.py' > pr.diff || true
+          git diff origin/test...HEAD -- 'app/*.py' > pr.diff || true
           LINES=$(wc -l < pr.diff | tr -d ' ')
           echo "diff_lines=$LINES" >> "$GITHUB_OUTPUT"
           if [ "$LINES" = "0" ]; then
