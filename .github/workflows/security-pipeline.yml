@@ -51,7 +51,12 @@ jobs:
         run: |
           set -e
           git fetch origin test --depth=1 || git fetch origin test
-          git diff origin/test...HEAD -- 'app/*.py' > pr.diff || true
+          git diff origin/test...HEAD -- 'app/**/*.py' ':!app/tests/**/*.py' > pr.diff
+          GIT_DIFF_EXIT=$?
+          echo "git_diff_exit_code=$GIT_DIFF_EXIT"
+          if [ "$GIT_DIFF_EXIT" -ne 0 ]; then
+            echo "::warning::git diff returned non-zero: $GIT_DIFF_EXIT"
+          fi
           LINES=$(wc -l < pr.diff | tr -d ' ')
           echo "diff_lines=$LINES" >> "$GITHUB_OUTPUT"
           echo "Files in diff:"
