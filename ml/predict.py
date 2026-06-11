@@ -44,6 +44,7 @@ __main__.ASTFeatureExtractor = ASTFeatureExtractor
 __main__.SecurityPatternExtractor = SecurityPatternExtractor
 
 import joblib  # noqa: E402
+from lime.lime_text import LimeTextExplainer  # noqa: E402
 
 MODEL_PATH = Path(__file__).parent / "modelo_seguridad.joblib"
 SUPPORTED_EXTS = {".py"}
@@ -58,6 +59,7 @@ class FileVerdict:
     label: str
     proba: float
     added_lines: int
+    lime_explanation: list[dict[str, str]] | None = None
 
 
 @dataclass
@@ -148,6 +150,44 @@ def predict_file(model, path: str, lines: list[str]) -> FileVerdict:
 def probable_vuln_index(model) -> int:
     classes = list(model.classes_)
     return int(max(range(len(classes)), key=lambda i: classes[i]))
+
+
+def generate_lime_explanation(model, code: str, num_features: int = 10) -> list[dict[str, str]]:
+    """Genera una explicación LIME para el código dado."""
+    try:
+        explainer = LimeTextExplainer(class_names=["SEGURO", "VULNERABLE"])
+        explanation = explainer.explain_instance(
+            code,
+            model.predict_proba,
+            num_features=num_features,
+            labels=[1],
+        )
+        return [
+            {"token": token, "weight": f"{weight:.4f}"}
+            for token, weight in explanation.as_list(label=1)
+        ]
+    except Exception:
+        return []
+
+
+def predict_file(model, path: str, lines: list[str]) -> FileVerdict:
+    code = "\n".join(lines)
+    proba_vec = model.predict_proba([code])[0]
+    vuln_idx = list(model.classes_).index(1) if 1 in model.classes_ else int(probable_vuln_index(model))
+    vuln_proba = float(proba_vec[vuln_idx])
+    label = "VULNERABLE" if vuln_proba >= 0.5 else "SEGURO"
+    
+    lime_explanation = None
+    if label == "VULNERABLE":
+        lime_explanation = generate_lime_explanation(model, code)
+    
+    return FileVerdict(
+        path=path,
+        label=label,
+        proba=round(vuln_proba, 4),
+        added_lines=len(lines),
+        lime_explanation=lime_explanation,
+    )
 
 
 def aggregate(file_verdicts: list[FileVerdict]) -> OverallVerdict:

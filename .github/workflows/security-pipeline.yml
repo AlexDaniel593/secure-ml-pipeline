@@ -160,6 +160,51 @@ jobs:
           fi
           python -m scripts.telegram_notify "$MSG" || true
 
+      - name: Notify Telegram - vulnerable details
+        if: steps.predict.outputs.verdict == 'VULNERABLE'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          pip install --quiet requests
+          
+          # Leer el diff
+          DIFF_CONTENT=$(cat pr.diff)
+          
+          # Leer el JSON con explicaciones LIME
+          LIME_INFO=$(python -c "
+          import json
+          with open('result.json', 'r', encoding='utf-8') as f:
+              data = json.load(f)
+          for file in data.get('files', []):
+              if file.get('label') == 'VULNERABLE' and file.get('lime_explanation'):
+                  print(f\"\\n📄 Archivo: {file['path']}\")
+                  print(f\"   Probabilidad: {file['proba']:.2%}\")
+                  print(f\"   Top features (LIME):\")
+                  for i, feat in enumerate(file['lime_explanation'][:5], 1):
+                      print(f\"     {i}. {feat['token']} (peso: {feat['weight']})\")
+          ")
+          
+          # Construir el mensaje detallado
+          MSG="⚠️ DETALLES DE VULNERABILIDAD
+          
+PR #${{ github.event.pull_request.number }} - ${{ github.event.pull_request.title }}
+${{ github.event.pull_request.html_url }}
+
+$LIME_INFO
+
+📋 DIFF COMPLETO:
+\`\`\`
+$DIFF_CONTENT
+\`\`\`"
+          
+          # Enviar (truncar si es muy largo)
+          if [ ${#MSG} -gt 4000 ]; then
+            MSG="${MSG:0:4000}... (mensaje truncado)"
+          fi
+          
+          python -m scripts.telegram_notify "$MSG" || true
+
       - name: Fail if vulnerable
         if: steps.predict.outputs.verdict == 'VULNERABLE'
         run: |
