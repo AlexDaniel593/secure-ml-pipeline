@@ -30,10 +30,12 @@ EXIT_NO_TEXT = 2
 EXIT_NETWORK = 3
 
 
-def send_message(token: str, chat_id: str, text: str, parse_mode: str = "HTML") -> bool:
+def send_message(token: str, chat_id: str, text: str, parse_mode: str | None = None) -> bool:
     """Envía un mensaje. Devuelve True si fue exitoso, False en caso contrario."""
     url = f"{API_BASE}/bot{token}/sendMessage"
-    payload = {"chat_id": chat_id, "text": text, "parse_mode": parse_mode}
+    payload = {"chat_id": chat_id, "text": text}
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
     try:
         response = requests.post(url, json=payload, timeout=10)
         response.raise_for_status()
