@@ -9,8 +9,8 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models import User
-from app.schemas import UserCreate
-from app.security import hash_password, verify_password
+from app.schemas import Token, UserCreate
+from app.security import create_access_token, hash_password, verify_password
 
 
 class AuthService:
@@ -45,3 +45,9 @@ class AuthService:
                 detail="Credenciales inválidas",
             )
         return user
+
+    @staticmethod
+    def login(db: Session, email: str, password: str) -> Token:
+        user = AuthService.authenticate(db, email, password)
+        access_token = create_access_token(subject=user.email)
+        return Token(access_token=access_token)

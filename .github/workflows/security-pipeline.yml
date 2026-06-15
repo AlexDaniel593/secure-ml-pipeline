@@ -184,48 +184,53 @@ jobs:
           import json
           import os
           import subprocess
-          
-          # Leer el diff
+
           with open('pr.diff', 'r', encoding='utf-8') as f:
               diff_content = f.read()
-          
-          # Leer el JSON con explicaciones LIME
+
           with open('result.json', 'r', encoding='utf-8') as f:
               data = json.load(f)
-          
-          lime_info = []
-          for file in data.get('files', []):
-              if file.get('label') == 'VULNERABLE' and file.get('lime_explanation'):
-                  lime_info.append(f\"\n📄 Archivo: {file['path']}\")
-                  lime_info.append(f\"   Probabilidad: {file['proba']:.2%}\")
-                  lime_info.append(f\"   Top features (LIME):\")
-                  for i, feat in enumerate(file['lime_explanation'][:5], 1):
-                      lime_info.append(f\"     {i}. {feat['token']} (peso: {feat['weight']})\")
-          
-          lime_text = '\n'.join(lime_info)
-          
-          # Construir el mensaje
-          parts = [
-              "⚠️ DETALLES DE VULNERABILIDAD",
-              "",
-              f"PR #{os.environ['PR_NUMBER']} - {os.environ['PR_TITLE']}",
-              os.environ['PR_URL'],
-              "",
-              lime_text,
-              "",
-              "📋 DIFF COMPLETO:",
-              "```",
-              diff_content,
-              "```",
-          ]
-          msg = "\n".join(parts)
 
-          # Truncar si es muy largo
+          parts = [
+              '⚠️ ALERTA DE VULNERABILIDAD DETECTADA',
+              '',
+              f'PR #{os.environ[\"PR_NUMBER\"]} - {os.environ[\"PR_TITLE\"]}',
+              os.environ['PR_URL'],
+              '',
+              f'Veredicto: {data[\"overall\"][\"label\"]} (prob: {data[\"overall\"][\"proba\"]:.2%})',
+              f'Resumen: {data.get(\"summary\", \"N/A\")}',
+              '',
+              '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+              '📊 EXPLICACIÓN LIME (por archivo)',
+              '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+          ]
+
+          for file in data.get('files', []):
+              if file.get('label') == 'VULNERABLE':
+                  parts.append(f'')
+                  parts.append(f'📄 {file[\"path\"]}')
+                  parts.append(f'   Probabilidad: {file[\"proba\"]:.2%}')
+                  parts.append(f'   Líneas añadidas: {file[\"added_lines\"]}')
+                  if file.get('lime_explanation'):
+                      parts.append(f'   🔍 Features que indican VULNERABILIDAD:')
+                      positive = [f for f in file['lime_explanation'] if float(f['weight']) > 0]
+                      negative = [f for f in file['lime_explanation'] if float(f['weight']) < 0]
+                      for i, feat in enumerate(positive[:5], 1):
+                          parts.append(f'      {i}. \"{feat[\"token\"]}\" (+{feat[\"weight\"]})')
+                      if negative:
+                          parts.append(f'   ✅ Features que indican SEGURIDAD:')
+                          for i, feat in enumerate(negative[:3], 1):
+                              parts.append(f'      {i}. \"{feat[\"token\"]}\" ({feat[\"weight\"]})')
+
+          msg = '\n'.join(parts)
           if len(msg) > 4000:
-              msg = msg[:4000] + '... (mensaje truncado)'
-          
-          # Enviar via telegram_notify
+              msg = msg[:4000] + '...(truncado)'
           subprocess.run(['python', '-m', 'scripts.telegram_notify', msg], check=False)
+
+          diff_msg = f'📋 DIFF del PR #{os.environ[\"PR_NUMBER\"]}:\n\n\`\`\`\n{diff_content}\n\`\`\`'
+          if len(diff_msg) > 4000:
+              diff_msg = diff_msg[:4000] + '...(truncado)'
+          subprocess.run(['python', '-m', 'scripts.telegram_notify', diff_msg], check=False)
           "
 
       - name: Fail if vulnerable
