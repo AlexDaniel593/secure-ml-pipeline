@@ -81,8 +81,11 @@ jobs:
         if: steps.diff.outputs.skip == '0'
         run: |
           set -o pipefail
+          # Desactivar errexit para que el exit code 2 de Python no mate el script
+          set +e
           python -W ignore -m ml.predict --diff pr.diff > result.json
           EXIT_CODE=$?
+          set -e
           echo "predict_exit_code=$EXIT_CODE"
           cat result.json
           if [ ! -s result.json ]; then
