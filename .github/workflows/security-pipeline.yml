@@ -51,6 +51,13 @@ jobs:
         run: |
           set -e
           git fetch origin test --depth=1 || git fetch origin test
+          if [ ! -d "app" ]; then
+            echo "::notice::app/ no existe en esta rama. Se omite el análisis de seguridad."
+            > pr.diff
+            echo "diff_lines=0" >> "$GITHUB_OUTPUT"
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           git diff origin/test...HEAD -- 'app/**/*.py' ':!app/tests/**/*.py' > pr.diff
           GIT_DIFF_EXIT=$?
           echo "git_diff_exit_code=$GIT_DIFF_EXIT"
@@ -241,14 +248,26 @@ jobs:
           cache: "pip"
           cache-dependency-path: app/requirements.txt
 
+      - name: Check if app exists
+        id: check_app
+        run: |
+          if [ -d "app" ] && [ -f "app/requirements.txt" ]; then
+            echo "app_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::app/ no existe en esta rama. Se omiten tests de aplicación."
+            echo "app_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install app dependencies
+        if: steps.check_app.outputs.app_exists == 'true'
         run: pip install -r app/requirements.txt
 
       - name: Run tests
+        if: steps.check_app.outputs.app_exists == 'true'
         run: cd app && pytest
 
       - name: Notify Telegram - tests passed
-        if: success()
+        if: success() && steps.check_app.outputs.app_exists == 'true'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -258,7 +277,7 @@ jobs:
           python -m scripts.telegram_notify "$MSG" || true
 
       - name: Notify Telegram - tests failed
-        if: failure()
+        if: failure() && steps.check_app.outputs.app_exists == 'true'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
