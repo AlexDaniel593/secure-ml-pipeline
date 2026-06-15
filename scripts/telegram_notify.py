@@ -40,7 +40,8 @@ def send_message(token: str, chat_id: str, text: str, parse_mode: str | None = N
         response = requests.post(url, json=payload, timeout=10)
         response.raise_for_status()
         return True
-    except requests.RequestException:
+    except requests.RequestException as exc:
+        print(f"[telegram_notify] Error enviando mensaje: {exc}", file=sys.stderr)
         return False
 
 

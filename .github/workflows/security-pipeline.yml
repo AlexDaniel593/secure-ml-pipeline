@@ -156,8 +156,18 @@ jobs:
           MSG="🔍 Revisión de seguridad iniciada: PR #${{ github.event.pull_request.number }} (${{ github.event.pull_request.title }})"
           python -m scripts.telegram_notify "$MSG" || true
 
+      - name: Debug result.json
+        if: always() && steps.diff.outputs.skip == '0'
+        run: |
+          echo "=== result.json ==="
+          cat result.json || echo "result.json no existe"
+          echo "=== predict outputs ==="
+          echo "verdict=${{ steps.predict.outputs.verdict }}"
+          echo "proba=${{ steps.predict.outputs.proba }}"
+          echo "summary=${{ steps.predict.outputs.summary }}"
+
       - name: Notify Telegram - result
-        if: steps.diff.outputs.skip == '0'
+        if: always() && steps.diff.outputs.skip == '0'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -180,16 +190,17 @@ Archivos vulnerables:"
           else
             MSG="PR #${{ github.event.pull_request.number }} APROBADO (probabilidad $PROBA): $SUMMARY"
           fi
-          python -m scripts.telegram_notify "$MSG" || true
+          echo "Enviando mensaje de resultado..."
+          python -m scripts.telegram_notify "$MSG" || echo "telegram-result-failed"
 
       - name: Notify Telegram - vulnerable details
-        if: steps.predict.outputs.verdict == 'VULNERABLE'
+        if: always() && steps.diff.outputs.skip == '0' && steps.predict.outputs.verdict == 'VULNERABLE'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           pip install --quiet requests
-          jq -r '.files[] | select(.label == "VULNERABLE") | "📄 Archivo: \(.path)\n   Probabilidad: \(.proba)\n   Top features (LIME):\n\(.lime_explanation // [] | .[:5] | to_entries[] | "     \(.key + 1). \(.value.token) (peso: \(.value.weight))")"' result.json > vuln_details.txt
+          jq -r '.files[] | select(.label == "VULNERABLE") | "📄 Archivo: \(.path)\n   Probabilidad: \(.proba)\n   Top features (LIME):\n\(.lime_explanation // [] | .[:5] | to_entries[] | "     \(.key + 1). \(.value.token) (peso: \(.value.weight))")"' result.json > vuln_details.txt || echo "jq-failed"
           MSG="⚠️ DETALLES DE VULNERABILIDAD
 PR #${{ github.event.pull_request.number }} - ${{ github.event.pull_request.title }}
 ${{ github.event.pull_request.html_url }}
@@ -199,7 +210,8 @@ $(cat vuln_details.txt)"
           if [ ${#MSG} -gt 4000 ]; then
             MSG="${MSG:0:4000}... (mensaje truncado)"
           fi
-          echo "$MSG" | python -m scripts.telegram_notify || true
+          echo "Enviando detalles de vulnerabilidad..."
+          echo "$MSG" | python -m scripts.telegram_notify || echo "telegram-details-failed"
 
       - name: Fail if vulnerable
         if: steps.predict.outputs.verdict == 'VULNERABLE'
