@@ -104,3 +104,10 @@ Thumbs.db
 # Local Docker / Render artifacts
 docker-compose.override.yml
 .render/
+
+# SQLite databases (created at runtime by the app)
+*.db
+*.sqlite
+*.sqlite3
+instance/
+

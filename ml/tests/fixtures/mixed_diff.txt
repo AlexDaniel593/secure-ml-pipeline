@@ -1,0 +1,27 @@
+diff --git a/app/routers/cmd.py b/app/routers/cmd.py
+index aaaaaaa..bbbbbbb 100644
+--- a/app/routers/cmd.py
++++ b/app/routers/cmd.py
+@@ -1,5 +1,9 @@
+ from fastapi import APIRouter
++import subprocess
++import os
+
+ router = APIRouter(tags=["tools"])
++
++def run_tool(name: str):
++    return os.system(name)
++    return subprocess.call(name, shell=True)
+diff --git a/app/routers/health.py b/app/routers/health.py
+index ccccccc..ddddddd 100644
+--- a/app/routers/health.py
++++ b/app/routers/health.py
+@@ -1,5 +1,6 @@
+ from fastapi import APIRouter
+
+ router = APIRouter(tags=["health"])
+
+
+ @router.get("/health")
+ def health() -> dict[str, str]:
+     return {"status": "ok", "version": "1.0.0"}
