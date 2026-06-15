@@ -30,18 +30,15 @@ EXIT_NO_TEXT = 2
 EXIT_NETWORK = 3
 
 
-def send_message(token: str, chat_id: str, text: str, parse_mode: str | None = None) -> bool:
+def send_message(token: str, chat_id: str, text: str, parse_mode: str = "HTML") -> bool:
     """Envía un mensaje. Devuelve True si fue exitoso, False en caso contrario."""
     url = f"{API_BASE}/bot{token}/sendMessage"
-    payload = {"chat_id": chat_id, "text": text}
-    if parse_mode:
-        payload["parse_mode"] = parse_mode
+    payload = {"chat_id": chat_id, "text": text, "parse_mode": parse_mode}
     try:
         response = requests.post(url, json=payload, timeout=10)
         response.raise_for_status()
         return True
-    except requests.RequestException as exc:
-        print(f"[telegram_notify] Error enviando mensaje: {exc}", file=sys.stderr)
+    except requests.RequestException:
         return False
 
 

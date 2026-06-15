@@ -156,62 +156,77 @@ jobs:
           MSG="🔍 Revisión de seguridad iniciada: PR #${{ github.event.pull_request.number }} (${{ github.event.pull_request.title }})"
           python -m scripts.telegram_notify "$MSG" || true
 
-      - name: Debug result.json
-        if: always() && steps.diff.outputs.skip == '0'
-        run: |
-          echo "=== result.json ==="
-          cat result.json || echo "result.json no existe"
-          echo "=== predict outputs ==="
-          echo "verdict=${{ steps.predict.outputs.verdict }}"
-          echo "proba=${{ steps.predict.outputs.proba }}"
-          echo "summary=${{ steps.predict.outputs.summary }}"
-
       - name: Notify Telegram - result
-        if: always() && steps.diff.outputs.skip == '0'
+        if: steps.diff.outputs.skip == '0'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           pip install --quiet requests
-          VERDICT="${{ steps.predict.outputs.verdict }}"
-          PROBA="${{ steps.predict.outputs.proba }}"
-          SUMMARY="${{ steps.predict.outputs.summary }}"
-          if [ "$VERDICT" = "VULNERABLE" ]; then
-            # Extraer archivos vulnerables del result.json
-            VULN_FILES=$(jq -r '.files[] | select(.label == "VULNERABLE") | "\(.path) (\(.proba))"' result.json | head -n 10)
-            MSG="PR #${{ github.event.pull_request.number }} RECHAZADO (probabilidad $PROBA): $SUMMARY"
-            MSG="$MSG
-
-Archivos vulnerables:"
-            while IFS= read -r line; do
-              MSG="$MSG
-- $line"
-            done <<< "$VULN_FILES"
+          if [ "${{ steps.predict.outputs.verdict }}" = "VULNERABLE" ]; then
+            MSG="PR #${{ github.event.pull_request.number }} RECHAZADO (probabilidad ${{ steps.predict.outputs.proba }}): ${{ steps.predict.outputs.summary }}"
           else
-            MSG="PR #${{ github.event.pull_request.number }} APROBADO (probabilidad $PROBA): $SUMMARY"
+            MSG="PR #${{ github.event.pull_request.number }} APROBADO (probabilidad ${{ steps.predict.outputs.proba }}): ${{ steps.predict.outputs.summary }}"
           fi
-          echo "Enviando mensaje de resultado..."
-          python -m scripts.telegram_notify "$MSG" || echo "telegram-result-failed"
+          python -m scripts.telegram_notify "$MSG" || true
 
       - name: Notify Telegram - vulnerable details
-        if: always() && steps.diff.outputs.skip == '0' && steps.predict.outputs.verdict == 'VULNERABLE'
+        if: steps.predict.outputs.verdict == 'VULNERABLE'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
           pip install --quiet requests
-          jq -r '.files[] | select(.label == "VULNERABLE") | "📄 Archivo: \(.path)\n   Probabilidad: \(.proba)\n   Top features (LIME):\n\(.lime_explanation // [] | .[:5] | to_entries[] | "     \(.key + 1). \(.value.token) (peso: \(.value.weight))")"' result.json > vuln_details.txt || echo "jq-failed"
-          MSG="⚠️ DETALLES DE VULNERABILIDAD
-PR #${{ github.event.pull_request.number }} - ${{ github.event.pull_request.title }}
-${{ github.event.pull_request.html_url }}
+          python -c "
+          import json
+          import os
+          import subprocess
+          
+          # Leer el diff
+          with open('pr.diff', 'r', encoding='utf-8') as f:
+              diff_content = f.read()
+          
+          # Leer el JSON con explicaciones LIME
+          with open('result.json', 'r', encoding='utf-8') as f:
+              data = json.load(f)
+          
+          lime_info = []
+          for file in data.get('files', []):
+              if file.get('label') == 'VULNERABLE' and file.get('lime_explanation'):
+                  lime_info.append(f\"\n📄 Archivo: {file['path']}\")
+                  lime_info.append(f\"   Probabilidad: {file['proba']:.2%}\")
+                  lime_info.append(f\"   Top features (LIME):\")
+                  for i, feat in enumerate(file['lime_explanation'][:5], 1):
+                      lime_info.append(f\"     {i}. {feat['token']} (peso: {feat['weight']})\")
+          
+          lime_text = '\n'.join(lime_info)
+          
+          # Construir el mensaje
+          parts = [
+              "⚠️ DETALLES DE VULNERABILIDAD",
+              "",
+              f"PR #{os.environ['PR_NUMBER']} - {os.environ['PR_TITLE']}",
+              os.environ['PR_URL'],
+              "",
+              lime_text,
+              "",
+              "📋 DIFF COMPLETO:",
+              "```",
+              diff_content,
+              "```",
+          ]
+          msg = "\n".join(parts)
 
-$(cat vuln_details.txt)"
           # Truncar si es muy largo
-          if [ ${#MSG} -gt 4000 ]; then
-            MSG="${MSG:0:4000}... (mensaje truncado)"
-          fi
-          echo "Enviando detalles de vulnerabilidad..."
-          echo "$MSG" | python -m scripts.telegram_notify || echo "telegram-details-failed"
+          if len(msg) > 4000:
+              msg = msg[:4000] + '... (mensaje truncado)'
+          
+          # Enviar via telegram_notify
+          subprocess.run(['python', '-m', 'scripts.telegram_notify', msg], check=False)
+          "
 
       - name: Fail if vulnerable
         if: steps.predict.outputs.verdict == 'VULNERABLE'
