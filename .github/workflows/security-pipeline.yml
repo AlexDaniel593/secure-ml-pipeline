@@ -127,10 +127,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          BODY="El modelo de seguridad detectó código vulnerable en PR #${{ github.event.pull_request.number }}.$'\n\n'
-          - **Probabilidad:** ${{ steps.predict.outputs.proba }}$'\n'
-          - **Resumen:** ${{ steps.predict.outputs.summary }}$'\n\n'
-          Ver PR: ${{ github.event.pull_request.html_url }}"
+          BODY="El modelo de seguridad detectó código vulnerable en PR #${{ github.event.pull_request.number }}."
+          BODY+=$'\n\n- **Probabilidad:** ${{ steps.predict.outputs.proba }}'
+          BODY+=$'\n- **Resumen:** ${{ steps.predict.outputs.summary }}'
+          BODY+=$'\n\nVer PR: ${{ github.event.pull_request.html_url }}'
           gh issue create \
             --title "fixing-required: PR #${{ github.event.pull_request.number }} contiene código vulnerable" \
             --body "$BODY" \
@@ -165,45 +165,58 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
           pip install --quiet requests
+          python -c "
+          import json
+          import os
+          import subprocess
           
           # Leer el diff
-          DIFF_CONTENT=$(cat pr.diff)
+          with open('pr.diff', 'r', encoding='utf-8') as f:
+              diff_content = f.read()
           
           # Leer el JSON con explicaciones LIME
-          LIME_INFO=$(python -c "
-          import json
           with open('result.json', 'r', encoding='utf-8') as f:
               data = json.load(f)
+          
+          lime_info = []
           for file in data.get('files', []):
               if file.get('label') == 'VULNERABLE' and file.get('lime_explanation'):
-                  print(f\"\\n📄 Archivo: {file['path']}\")
-                  print(f\"   Probabilidad: {file['proba']:.2%}\")
-                  print(f\"   Top features (LIME):\")
+                  lime_info.append(f\"\n📄 Archivo: {file['path']}\")
+                  lime_info.append(f\"   Probabilidad: {file['proba']:.2%}\")
+                  lime_info.append(f\"   Top features (LIME):\")
                   for i, feat in enumerate(file['lime_explanation'][:5], 1):
-                      print(f\"     {i}. {feat['token']} (peso: {feat['weight']})\")
-          ")
+                      lime_info.append(f\"     {i}. {feat['token']} (peso: {feat['weight']})\")
           
-          # Construir el mensaje detallado
-          MSG="⚠️ DETALLES DE VULNERABILIDAD
+          lime_text = '\n'.join(lime_info)
           
-PR #${{ github.event.pull_request.number }} - ${{ github.event.pull_request.title }}
-${{ github.event.pull_request.html_url }}
+          # Construir el mensaje
+          parts = [
+              "⚠️ DETALLES DE VULNERABILIDAD",
+              "",
+              f"PR #{os.environ['PR_NUMBER']} - {os.environ['PR_TITLE']}",
+              os.environ['PR_URL'],
+              "",
+              lime_text,
+              "",
+              "📋 DIFF COMPLETO:",
+              "```",
+              diff_content,
+              "```",
+          ]
+          msg = "\n".join(parts)
 
-$LIME_INFO
-
-📋 DIFF COMPLETO:
-\`\`\`
-$DIFF_CONTENT
-\`\`\`"
+          # Truncar si es muy largo
+          if len(msg) > 4000:
+              msg = msg[:4000] + '... (mensaje truncado)'
           
-          # Enviar (truncar si es muy largo)
-          if [ ${#MSG} -gt 4000 ]; then
-            MSG="${MSG:0:4000}... (mensaje truncado)"
-          fi
-          
-          python -m scripts.telegram_notify "$MSG" || true
+          # Enviar via telegram_notify
+          subprocess.run(['python', '-m', 'scripts.telegram_notify', msg], check=False)
+          "
 
       - name: Fail if vulnerable
         if: steps.predict.outputs.verdict == 'VULNERABLE'
