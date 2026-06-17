@@ -306,20 +306,10 @@ jobs:
     needs: test-and-merge
     runs-on: ubuntu-latest
     steps:
-      - name: Wait for merge to test
+      - name: Wait for auto-merge to test
         run: |
-          echo "Esperando a que el PR se mergee a test..."
-          for i in {1..30}; do
-            STATE=$(gh pr view "${{ github.event.pull_request.number }}" --json state -q '.state' 2>/dev/null || echo "UNKNOWN")
-            if [ "$STATE" = "MERGED" ]; then
-              echo "PR mergeado."
-              break
-            fi
-            echo "Intento $i/30 - estado: $STATE"
-            sleep 5
-          done
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "Auto-merge a test fue programado. Esperando 20s para que GitHub lo complete..."
+          sleep 20
 
       - name: Create promotion PR (test → main)
         id: create_promotion
