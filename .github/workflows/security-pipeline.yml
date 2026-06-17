@@ -50,7 +50,6 @@ jobs:
         id: diff
         run: |
           set -e
-          git fetch origin test --depth=1 || git fetch origin test
           if [ ! -d "app" ]; then
             echo "::notice::app/ no existe en esta rama. Se omite el análisis de seguridad."
             > pr.diff
@@ -58,7 +57,8 @@ jobs:
             echo "skip=1" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          git diff origin/test...HEAD -- 'app/**/*.py' ':!app/tests/**/*.py' > pr.diff
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          git diff "$BASE_SHA"...HEAD -- 'app/**/*.py' ':!app/tests/**/*.py' > pr.diff
           GIT_DIFF_EXIT=$?
           echo "git_diff_exit_code=$GIT_DIFF_EXIT"
           if [ "$GIT_DIFF_EXIT" -ne 0 ]; then
