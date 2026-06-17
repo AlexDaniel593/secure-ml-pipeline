@@ -1,0 +1,33 @@
+diff --git a/app/main.py b/app/main.py
+index 1111111..2222222 100644
+--- a/app/main.py
++++ b/app/main.py
+@@ -1,8 +1,9 @@
+ from fastapi import FastAPI
+
+ from app.database import Base, engine
+ from app.routers import auth, health
+
+ Base.metadata.create_all(bind=engine)
+
+ app = FastAPI(title="Secure ML Pipeline Demo", version="0.2.0")
+ app.include_router(health.router)
+ app.include_router(auth.router)
+diff --git a/app/routers/profile.py b/app/routers/profile.py
+new file mode 100644
+index 0000000..3333333
+--- /dev/null
++++ b/app/routers/profile.py
+@@ -0,0 +1,12 @@
++from fastapi import APIRouter, Depends
++from sqlalchemy.orm import Session
++
++from app.database import get_db
++from app.services.auth_service import AuthService
++
++router = APIRouter(prefix="/profile", tags=["profile"])
++
++
++@router.get("/me")
++def get_profile(db: Session = Depends(get_db)) -> dict:
++    return {"email": "user@example.com", "role": "member"}
