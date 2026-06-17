@@ -50,7 +50,6 @@ jobs:
         id: diff
         run: |
           set -e
-          git fetch origin test --depth=1 || git fetch origin test
           if [ ! -d "app" ]; then
             echo "::notice::app/ no existe en esta rama. Se omite el análisis de seguridad."
             > pr.diff
@@ -58,7 +57,8 @@ jobs:
             echo "skip=1" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          git diff origin/test...HEAD -- 'app/**/*.py' ':!app/tests/**/*.py' > pr.diff
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          git diff "$BASE_SHA"...HEAD -- 'app/**/*.py' ':!app/tests/**/*.py' > pr.diff
           GIT_DIFF_EXIT=$?
           echo "git_diff_exit_code=$GIT_DIFF_EXIT"
           if [ "$GIT_DIFF_EXIT" -ne 0 ]; then
@@ -306,20 +306,10 @@ jobs:
     needs: test-and-merge
     runs-on: ubuntu-latest
     steps:
-      - name: Wait for merge to test
+      - name: Wait for auto-merge to test
         run: |
-          echo "Esperando a que el PR se mergee a test..."
-          for i in {1..30}; do
-            STATE=$(gh pr view "${{ github.event.pull_request.number }}" --json state -q '.state' 2>/dev/null || echo "UNKNOWN")
-            if [ "$STATE" = "MERGED" ]; then
-              echo "PR mergeado."
-              break
-            fi
-            echo "Intento $i/30 - estado: $STATE"
-            sleep 5
-          done
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "Auto-merge a test fue programado. Esperando 20s para que GitHub lo complete..."
+          sleep 20
 
       - name: Create promotion PR (test → main)
         id: create_promotion

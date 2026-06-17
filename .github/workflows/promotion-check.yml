@@ -1,0 +1,50 @@
+name: Promotion Check
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  promotion-validation:
+    name: Promotion Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: app/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r app/requirements.txt
+
+      - name: Run tests
+        run: cd app && pytest
+
+      - name: Notify Telegram - success
+        if: success()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          pip install --quiet requests
+          MSG="✅ Promotion PR #${{ github.event.pull_request.number }} validado - listo para merge a main"
+          python -m scripts.telegram_notify "$MSG" || true
+
+      - name: Notify Telegram - failure
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          pip install --quiet requests
+          MSG="Promotion PR #${{ github.event.pull_request.number }} FALLÓ - merge a main bloqueado"
+          python -m scripts.telegram_notify "$MSG" || true
