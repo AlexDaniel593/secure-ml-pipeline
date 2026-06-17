@@ -314,7 +314,7 @@ jobs:
       - name: Create promotion PR (test → main)
         id: create_promotion
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           EXISTING=$(gh pr list --base main --head test --json number -q '.[0].number' 2>/dev/null || echo "")
           if [ -n "$EXISTING" ]; then
@@ -333,7 +333,7 @@ jobs:
 
       - name: Auto-merge promotion PR
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           PR_NUM=$(echo "${{ steps.create_promotion.outputs.promotion_pr }}" | grep -oE '[0-9]+$')
           gh pr merge "$PR_NUM" --auto --squash || echo "auto-merge-skip"
