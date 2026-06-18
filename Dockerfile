@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 COPY app/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app/ .
+COPY app/ ./app/
 
 RUN mkdir -p /app/data
 
