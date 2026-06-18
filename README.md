@@ -2,7 +2,7 @@
 
 > Pipeline CI/CD seguro con detección automática de vulnerabilidades en código fuente mediante un modelo de minería de datos (XGBoost + TF-IDF + AST + patrones de seguridad).
 
-[![Status](https://img.shields.io/badge/status-en%20construcci%C3%B3n-yellow)]() [![License](https://img.shields.io/badge/license-MIT-blue)]() [![Python](https://img.shields.io/badge/python-3.12-blue)]() [![Deploy](https://img.shields.io/badge/deploy-Render-46e3b7)]()
+[![Python](https://img.shields.io/badge/python-3.12-blue)]() [![Deploy](https://secure-ml-pipeline.onrender.com/health)]()
 
 Proyecto Integrador — **Desarrollo de Software Seguro** · ESPE · Parcial II · 2026
 
@@ -61,36 +61,15 @@ Notificaciones vía **Telegram Bot** en cada evento (inicio, clasificación, mer
 
 ---
 
-## 3. Estado del proyecto
-
-> 🚧 **En construcción** — actualmente Fase 0 (bootstrap del repositorio).
-
-| Fase | Descripción | Estado |
-|------|-------------|:------:|
-| 0 | Bootstrap: repo, ramas, esqueleto | ✅ |
-| 1 | App FastAPI de demo (endpoints vulnerables + seguros) | ⏳ |
-| 2 | `ml/predict.py` — inferencia desde diff | ⏳ |
-| 3 | Bot de Telegram (notificaciones) | ⏳ |
-| 4 | Workflow GitHub Actions (3 jobs) | ⏳ |
-| 5 | Branch protection rules en `main` y `test` | ⏳ |
-| 6 | Despliegue en Render | ⏳ |
-| 7 | Documentación final + informe LaTeX | ⏳ |
-
----
-
-## 4. Ramas
+## 3. Ramas
 
 - **`main`** — producción. Protegida, solo recibe merges desde `test` ya verificados.
 - **`test`** — staging. Aquí se ejecutan las pruebas automatizadas tras la revisión de seguridad.
 - **`dev`** — desarrollo. El dev hace push aquí y abre PR hacia `test`.
 
-Reglas de protección (Branch Protection Rules) por configurar en la UI de GitHub:
-- `main` y `test`: requieren PR + status checks aprobados de los 3 jobs del workflow.
-- No se permite push directo a `main` ni a `test`.
-
 ---
 
-## 5. Estructura del repositorio
+## 4. Estructura del repositorio
 
 ```
 secure-ml-pipeline/
@@ -114,6 +93,7 @@ secure-ml-pipeline/
 │   └── PROY_PARCIAL_II_DesSeguro.md   # enunciado de la actividad
 ├── Dockerfile
 ├── render.yaml
+├── postman_collection.json      # colección Postman (endpoints API)
 ├── .gitignore
 └── README.md
 ```
@@ -137,9 +117,9 @@ Detalles completos en el notebook: [`ml/Entrenamiento_Modelo_Seguridad_SEMMA_FIN
 
 ## 7. Despliegue
 
-Proveedor: **Render** (free tier, Docker web service).
+Proveedor: **Render**
 
-URL de producción: _pendiente (Fase 6)_
+URL de producción: https://secure-ml-pipeline.onrender.com/health
 
 ---
 
@@ -149,7 +129,3 @@ URL de producción: _pendiente (Fase 6)_
 - 📓 [Notebook de entrenamiento](ml/Entrenamiento_Modelo_Seguridad_SEMMA_FINAL.ipynb)
 
 ---
-
-## 9. Licencia
-
-MIT
