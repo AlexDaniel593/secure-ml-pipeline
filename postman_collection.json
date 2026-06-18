@@ -1,0 +1,84 @@
+{
+  "info": {
+    "name": "Secure ML Pipeline",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "BASE_URL",
+      "value": "https://secure-ml-pipeline.onrender.com"
+    },
+    {
+      "key": "TOKEN",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/health",
+          "host": ["{{BASE_URL}}"],
+          "path": ["health"]
+        }
+      }
+    },
+    {
+      "name": "Register User",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"SuperSecret123\",\n  \"full_name\": \"Test User\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/auth/register",
+          "host": ["{{BASE_URL}}"],
+          "path": ["auth", "register"]
+        }
+      }
+    },
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"SuperSecret123\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/auth/login",
+          "host": ["{{BASE_URL}}"],
+          "path": ["auth", "login"]
+        }
+      }
+    },
+    {
+      "name": "Change Password",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"old_password\": \"SuperSecret123\",\n  \"new_password\": \"NewSecure456\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/auth/me/password",
+          "host": ["{{BASE_URL}}"],
+          "path": ["auth", "me", "password"]
+        }
+      }
+    }
+  ]
+}
