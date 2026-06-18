@@ -9,7 +9,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models import User
-from app.schemas import Token, UserCreate
+from app.schemas import ChangePassword, Token, UserCreate
 from app.security import create_access_token, hash_password, verify_password
 
 
@@ -51,3 +51,14 @@ class AuthService:
         user = AuthService.authenticate(db, email, password)
         access_token = create_access_token(subject=user.email)
         return Token(access_token=access_token)
+
+    @staticmethod
+    def change_password(db: Session, user: User, data: ChangePassword) -> dict[str, str]:
+        if not verify_password(data.old_password, user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="La contraseña actual no es correcta",
+            )
+        user.hashed_password = hash_password(data.new_password)
+        db.commit()
+        return {"detail": "Contraseña actualizada exitosamente"}
