@@ -10,7 +10,10 @@ services:
     autoDeploy: false
     envVars:
       - key: DATABASE_URL
-        value: sqlite:///./data/app.db
+        fromService:
+          type: pserv
+          name: secure-ml-db
+          property: connectionString
       - key: SECRET_KEY
         generateValue: true
       - key: ALGORITHM
