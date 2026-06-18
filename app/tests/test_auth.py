@@ -1,4 +1,4 @@
-"""Tests de los endpoints /auth/register y /auth/login."""
+"""Tests de los endpoints /auth/register, /auth/login y /auth/me/password."""
 
 VALID_PASSWORD = "securepass123"
 
@@ -92,3 +92,56 @@ def test_health_endpoint(client):
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "version": "0.1.0"}
+
+
+def _register_and_login(client, email="change@example.com", password=VALID_PASSWORD):
+    client.post("/auth/register", json={"email": email, "password": password})
+    resp = client.post("/auth/login", json={"email": email, "password": password})
+    return resp.json()["access_token"]
+
+
+def test_change_password_success(client):
+    token = _register_and_login(client)
+    response = client.patch(
+        "/auth/me/password",
+        json={"old_password": VALID_PASSWORD, "new_password": "newSecurePass1"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200
+    assert "exitosamente" in response.json()["detail"]
+
+    # Verificar que funciona con la nueva contraseña
+    resp = client.post(
+        "/auth/login",
+        json={"email": "change@example.com", "password": "newSecurePass1"},
+    )
+    assert resp.status_code == 200
+
+
+def test_change_password_wrong_old_password_returns_401(client):
+    token = _register_and_login(client)
+    response = client.patch(
+        "/auth/me/password",
+        json={"old_password": "wrong-old-pass", "new_password": "newSecurePass1"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 401
+    assert "no es correcta" in response.json()["detail"].lower()
+
+
+def test_change_password_without_token_returns_401(client):
+    response = client.patch(
+        "/auth/me/password",
+        json={"old_password": VALID_PASSWORD, "new_password": "newSecurePass1"},
+    )
+    assert response.status_code == 403
+
+
+def test_change_password_short_new_password_returns_422(client):
+    token = _register_and_login(client)
+    response = client.patch(
+        "/auth/me/password",
+        json={"old_password": VALID_PASSWORD, "new_password": "x"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 422
