@@ -52,7 +52,7 @@ jobs:
         if: env.DOCKERHUB_USERNAME != ''
         uses: docker/build-push-action@v5
         with:
-          context: ./app
+          context: .
           file: ./Dockerfile
           push: true
           tags: |
@@ -62,7 +62,7 @@ jobs:
       - name: Build only (no push)
         if: env.DOCKERHUB_USERNAME == ''
         run: |
-          docker build -t secure-ml-pipeline:test -f Dockerfile ./app
+          docker build -t secure-ml-pipeline:test -f Dockerfile .
           echo "Docker Hub secrets not configured. Skipping push."
 
   deploy:
