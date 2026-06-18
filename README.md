@@ -2,7 +2,7 @@
 
 > Pipeline CI/CD seguro con detección automática de vulnerabilidades en código fuente mediante un modelo de minería de datos (XGBoost + TF-IDF + AST + patrones de seguridad).
 
-[![Python](https://img.shields.io/badge/python-3.12-blue)]() [![Deploy](https://secure-ml-pipeline.onrender.com/health)]()
+[![Python](https://img.shields.io/badge/python-3.12-blue)]()
 
 Proyecto Integrador — **Desarrollo de Software Seguro** · ESPE · Parcial II · 2026
 
